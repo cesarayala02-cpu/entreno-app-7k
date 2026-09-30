@@ -1218,6 +1218,15 @@ function finisherFor(p){if(p.deload||(p.phase===1&&p.wk<=2))return null;const li
 function retoFor(p){return RETOS[(p.wk-1)%RETOS.length]}
 function retoK(p){return (p.deload||(p.phase===1&&p.wk<=2))?.6:1}
 function retoName(p){const r=retoFor(p),k=retoK(p);if(k>=1)return r.n;const P=r.p(p.phase,k);return (r.id==="r1"?"EMOM "+P.mins:r.id==="r2"?"AMRAP "+Math.round(P.sec/60):r.id==="r9"?"EMOM de habilidad y cardio":r.id==="r10"?"AMRAP "+Math.round(P.sec/60)+" del oso":r.n)+" · versión corta"}
+const WRIST=new Set(["flexion_inclinada","flexion","flexion_declinada","flexion_anillas","soporte","pino_pared","pike","mountain_climber","gateo_oso","burpee_paso","plancha_toque","fondos_asistidos","fondos_anillas","cuervo","w_munecas_suelo"]);
+function extraPart(p,ids){
+  if(p.deload||(p.phase===1&&p.wk<=4))return null;
+  const wrist=ids.some(id=>WRIST.has(id)),inv=skState(null,"invertidas").lv,est=skState(null,"estaticos").lv;let items;
+  if(wrist)items=[{id:"colgado",sets:2,reps:"20–30 s"},{id:est>=5?"hollow_full":"hollow",sets:2,reps:"15–20 s"},p.phase>=3?{id:"tuck_front_lever",sets:3,reps:"3–5 s"}:{id:"w_retraccion",sets:2,reps:"6–8"}];
+  else items=[inv>=3?{id:"pino_pared",sets:2,reps:"10–20 s"}:{id:"caminata_pared",sets:2,reps:"1–2"},{id:"cuervo",sets:3,reps:"3–5 s"},{id:"colgado",sets:2,reps:"20–30 s"}];
+  items.forEach(i=>i.note="Suave, sin intentos de récord");
+  return {t:"extra",wrist,items};
+}
 function sessionTitle(p){if(p.s.k==="reto")return "Reto del sábado: "+retoName(p);if(p.s.pool)return "Cardio + core · circuito "+cardioFor(p).n;return p.s.n}
 function planParts(p){
   const s=p.s,parts=[];
@@ -1236,8 +1245,8 @@ function planParts(p){
     parts.push({t:"circ",key:"int",name:"Intervalos",rounds:p.deload?4:6,rest:0,rrest:0,txt:(p.deload?8:12)+" min: 1 min rápido y 1 min suave, sin parar.",items:[{id:fast,reps:"60 s",note:"Rápido"},{id:"w_marcha",reps:"60 s",note:"Suave"}]});
   }else if(s.k==="circ"){
     if(s.pool){const c=cardioFor(p),cf=cardioCfg(p);parts.push({t:"circ",key:"circ",name:"Circuito "+c.n,rounds:cf.n,rest:cf.r,rrest:60,txt:cf.n+" rondas: "+cf.w+" s de trabajo y "+cf.r+" s de descanso por ejercicio; 1 min entre rondas. Debes poder hablar entrecortado.",items:c.it.map(id=>({id,reps:cf.w+" s",note:SIDED.has(id)?"Cambia de lado a la mitad":(p.phase===1&&p.wk<=4&&id==="jumping_jack"?"Sin salto":null)}))})}
-    else{const L=s.rot[p.blk%s.rot.length];parts.push({t:"circ",key:"circ",name:s.n,rounds:p.deload?2:s.rounds,rest:null,rrest:60,txt:s.txt,items:L.map(a=>({id:a[0],reps:a[1],bk:a[2]||null,note:a[3]||null}))})}
-  }else if(s.k==="reto"){const r=retoFor(p),k=retoK(p);parts.push({t:"proto",key:"reto",rid:r.id,name:retoName(p),desc:(k<1?"Versión corta: "+protoDesc(r.p(p.phase,k))+" ":"")+(k<1&&(r.id==="r1"||r.id==="r2"||r.id==="r9"||r.id==="r10")?"":r.d),proto:r.p(p.phase,k)})}
+    else{const L=s.rot[p.blk%s.rot.length];parts.push({t:"circ",key:"circ",name:s.n,rounds:p.deload?2:s.rounds,rest:null,rrest:60,txt:s.txt,items:L.map(a=>({id:a[0],reps:a[1],bk:a[2]||null,note:a[3]||null}))});const x=extraPart(p,L.map(a=>a[0]));if(x)parts.push(x)}
+  }else if(s.k==="reto"){const r=retoFor(p),k=retoK(p);parts.push({t:"proto",key:"reto",rid:r.id,name:retoName(p),desc:(k<1?"Versión corta: "+protoDesc(r.p(p.phase,k))+" ":"")+(k<1&&(r.id==="r1"||r.id==="r2"||r.id==="r9"||r.id==="r10")?"":r.d),proto:r.p(p.phase,k)});const x=extraPart(p,protoIds(r.p(p.phase,k)));if(x)parts.push(x)}
   else if(s.k==="test")parts.push({t:"test"});
   return parts;
 }
@@ -1378,6 +1387,7 @@ function partCard(pt,p,log){
     if(pt.key!=="int"){h+=`<div class="eyebrow">Rondas completadas</div><div class="rounds">`;for(let i=0;i<pt.rounds;i++)h+=`<button data-round="${i}" aria-pressed="${!!r[i]}">${i+1}</button>`;h+=`</div>`}
     h+=wItems(pt.items.map(it=>[it.id,it.reps+(it.note?" · "+it.note:"")+(it.bk?" · liga "+band(it.bk)[0]:"")]));
     return h+`</div>`}
+  if(pt.t==="extra")return `<details class="card"><summary>Opcional · práctica de trucos · 10–12 min</summary><p class="small muted" style="margin:8px 0 12px">Después del ${p.s.k==="reto"?"reto":"circuito"}, solo si te sientes bien. Suave, lejos del fallo y sin intentos de récord. ${pt.wrist?"Hoy sin pino ni cuervo: el "+(p.s.k==="reto"?"reto":"circuito")+" ya cargó las muñecas.":""} Si sientes muñecas, codos u hombros cargados, sáltalo: no cuenta en tu cumplimiento.</p>${pt.items.map(it=>exBlock(it,p,log,"sk")).join("")}</details>`;
   if(pt.t==="test")return `<div class="card stack"><div><div class="eyebrow">Una vez al mes</div><h3>Pruebas de nivel</h3></div><p class="small" style="margin:0">Hoy intentas el nivel que estás trabajando en cada rama. Calienta bien, descansa 2–3 min entre pruebas y no fuerces si algo duele. Este intento cuenta como el de la semana.</p>
     <div class="entries">${SK.map(B=>{const sk=skState(null,B.id),c=B.lv[sk.lv];return `<div><span><b>${esc(B.n)}</b><br><span class="small">${c?esc(c.n):"Rama completa"}</span></span><span class="small muted">${c&&attemptThisWeek(sk,p.date)?"intento anotado":""}</span></div>`}).join("")}</div>
     <button class="btn small" data-act="gotrucos" style="align-self:flex-start">Ver Trucos</button></div>`;
@@ -1663,6 +1673,7 @@ function announce(){const st=W.steps[W.i],prev=W.steps[W.i-1];if(!st)return;
   if(st.k==="cw"){if(st.rk==="int"){say((st.note?st.note+": ":"")+EX[st.id].n+", "+st.reps+".");return}say((st.ei===0?"Ronda "+(st.r+1)+". ":"")+EX[st.id].n+". "+st.reps+"."+(st.note?" "+st.note+".":""));return}
   if(st.k==="proto"){say((st.key==="fin"?"Finalizador: ":st.key==="reto"?"Reto: ":"")+st.name+". Toca empezar cuando estés listo.");return}
   if(st.k==="test"){const B=SKM[st.br],c=B.lv[skState(null,st.br).lv];if(c)say("Prueba de "+B.n+": "+c.n+". "+c.t);return}
+  if(st.k==="gate"){say("Bloque opcional: práctica de trucos, 10 minutos, suave. Hazlo solo si te sientes bien.");return}
   if(st.k==="sum"){say("Sesión completa. Buen trabajo. Anota tus repeticiones para terminar.");return}}
 function restFor(st){return W.p.phase===1?75:(st.ei<2?120:90)}
 function wuSteps(list,name){return list.map((w,idx)=>({k:"wu",list:name,idx,n:list.length,id:w[0],dose:w[1],sec:w[2],side:!!w[3]}))}
@@ -1679,6 +1690,7 @@ function buildSteps(p){
     else if(pt.t==="circ"){for(let r=0;r<pt.rounds;r++)pt.items.forEach((it,ei)=>steps.push({k:"cw",id:it.id,ei,r,rounds:pt.rounds,n:pt.items.length,reps:it.reps,bk:it.bk,note:it.note,rest:pt.rest,rrest:pt.rrest,last:ei===pt.items.length-1,name:pt.name,rk:pt.key}))}
     else if(pt.t==="proto")steps.push({k:"proto",key:pt.key,name:pt.name,desc:pt.desc,P:pt.proto,rid:pt.rid,fid:pt.fid});
     else if(pt.t==="test")SK.forEach((B,ti)=>steps.push({k:"test",br:B.id,ti}));
+    else if(pt.t==="extra"){steps.push({k:"gate",wrist:pt.wrist,names:pt.items.map(i=>EX[i.id].n),n:pt.items.reduce((a,i)=>a+i.sets,0)});pt.items.forEach((it,ei)=>{for(let j=0;j<it.sets;j++)steps.push({k:"set",ns:"sk",opt:1,id:it.id,ei,j,n:it.sets,reps:it.reps,note:it.note,rest:45,grp:"Opcional",gn:pt.items.length})})}
   });
   steps.push(...wuSteps(COOL,"cool"),{k:"sum"});return steps;
 }
@@ -1846,6 +1858,7 @@ function renderW(){const el=document.getElementById("wk");if(!el||!W)return;cons
       else if(painOn(sk,W.d))h+=`<div class="goal">Tienes el nivel bajado por dolor. Hoy no hagas el intento: solo práctica suave.</div>`;
       else h+=`<button class="bigbtn" data-w="tok">✓ Lo logré sin dolor</button><button class="bigbtn alt2" data-w="tno">No lo logré</button><button class="btn small" data-w="tpain" style="align-self:flex-start">Me dolió la articulación</button>`}
     h+=`<p class="small muted" style="margin:0">Descansa 2–3 min entre pruebas.</p><div class="row between"><button class="btn small" data-w="prev">‹ Anterior</button><button class="btn small" data-w="next">Siguiente ›</button></div>`;
+  }else if(st.k==="gate"){h+=wTop("Opcional")+`<h2>Práctica de trucos</h2><p style="margin:0">10–12 min, suave, sin intentos de récord. ${esc(st.names.join(", "))}.${st.wrist?" Hoy sin pino ni cuervo porque el entrenamiento ya cargó las muñecas.":""}</p><div class="goal">Si sientes muñecas, codos u hombros cargados, hoy no. No cuenta en tu cumplimiento.</div><button class="bigbtn" data-w="optyes">Sí, hacerlo</button><button class="bigbtn alt2" data-w="optno">Hoy no</button><div class="row between"><button class="btn small" data-w="prev">‹ Anterior</button></div>`;
   }else if(st.k==="sum"){const log=state.logs[W.d]||{};const items=sumItems();
     h+=wTop("Resumen")+`<h2>¡Sesión completa!</h2>`;
     if(items.length){const miss=sumMissing();
@@ -1887,6 +1900,8 @@ function onW(e){const b=e.target.closest("[data-w],[data-ex]");if(!b||!W)return;
   if(a==="clearset"){const x=stepLog(st);if(x.r)x.r[st.j]="";save("log-"+W.d);enterStep();renderW();return}
   if(a==="cwstart"){W.auto=true;const R=rng(st.reps);W.work={end:Date.now()+R.hi*1000,total:R.hi};renderW();say("Adelante. "+R.hi+" segundos.");return}
   if(a==="cwdone"){W.auto=true;finishCw();return}
+  if(a==="optyes"){go(W.i+1);return}
+  if(a==="optno"){let j=W.i+1;while(W.steps[j]&&W.steps[j].opt)j++;say("Va. Pasamos a estirar.");go(j);return}
   if(a==="pstart"){pStart();return}
   if(a==="ppause"){const pt=W.pt;if(pt.pausedAt){pt.t0+=Date.now()-pt.pausedAt;pt.pausedAt=null;say("Seguimos.")}else{pt.pausedAt=Date.now();say("Pausa.")}renderW();return}
   if(a==="pend"){pEnd();return}
